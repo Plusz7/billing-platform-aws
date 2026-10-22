@@ -1,0 +1,30 @@
+# Build output
+build/
+.gradle/
+out/
+cdk.out/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Secrets and local config
+.env
+*.pem
+*.tfvars
+cdk.context.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kotlin
+.kotlin/
+
+# Private study material (kept locally, not part of the portfolio)
+PLAN-NAUKI.md
+PROGRESS.md
+PROJECT-STRUCTURE.md
+.claude/

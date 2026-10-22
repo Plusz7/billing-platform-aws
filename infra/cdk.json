@@ -1,0 +1,7 @@
+{
+  "app": ".\\gradlew.bat -q run",
+  "watch": {
+    "include": ["**"],
+    "exclude": ["README.md", "cdk*.json", "build", ".gradle", "**/*.md"]
+  }
+}
