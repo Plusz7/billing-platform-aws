@@ -18,6 +18,8 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation(platform("software.amazon.awssdk:bom:2.57.8"))
+    implementation("software.amazon.awssdk:sns")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
