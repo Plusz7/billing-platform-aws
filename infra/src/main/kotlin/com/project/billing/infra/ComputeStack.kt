@@ -27,6 +27,7 @@ import software.amazon.awscdk.services.elasticloadbalancingv2.HealthCheck
 import software.amazon.awscdk.services.logs.RetentionDays
 import software.amazon.awscdk.services.rds.DatabaseInstance
 import software.amazon.awscdk.services.sns.Topic
+import software.amazon.awscdk.services.sqs.Queue
 import software.constructs.Construct
 
 /**
@@ -40,6 +41,7 @@ class ComputeStack(
     vpc: Vpc,
     database: DatabaseInstance,
     eventsTopic: Topic,
+    invoicingQueue: Queue,
     imageTag: String,
     desiredCount: Int,
 ): Stack(scope, id, props) {
@@ -71,6 +73,7 @@ class ComputeStack(
                         "DB_URL" to "jdbc:postgresql://${database.dbInstanceEndpointAddress}:" +
                             "${database.dbInstanceEndpointPort}/billing",
                         "EVENTS_TOPIC_ARN" to eventsTopic.topicArn,
+                        "INVOICING_QUEUE_URL" to invoicingQueue.queueUrl,
                     ),
                 )
                 .secrets(
@@ -92,6 +95,7 @@ class ComputeStack(
 
         // Task role (the application's identity), not the execution role: the SDK in the code calls SNS.
         eventsTopic.grantPublish(taskDefinition.taskRole)
+        invoicingQueue.grantConsumeMessages(taskDefinition.taskRole)
 
         val serviceSecurityGroup = SecurityGroup.Builder.create(this, "ServiceSecurityGroup").vpc(vpc).build()
 
