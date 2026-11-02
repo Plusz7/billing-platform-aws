@@ -11,7 +11,13 @@ fun main() {
         .region(System.getenv("CDK_DEFAULT_REGION"))
         .build()
 
-    NetworkStack(app, "NetworkStack", StackProps.builder().env(env).build())
+    val props = StackProps.builder().env(env).build()
+    val network = NetworkStack(app, "NetworkStack", props)
+    val data = DataStack(app, "DataStack", props, network.vpc)
+    val imageTag = app.node.tryGetContext("imageTag") as String? ?: "latest"
+    // 0 on the first deploy: the ECR repository must exist and hold the image before a task can start.
+    val desiredCount = (app.node.tryGetContext("desiredCount") as String?)?.toInt() ?: 1
+    ComputeStack(app, "ComputeStack", props, network.vpc, data.database, imageTag, desiredCount)
 
     app.synth()
 }
