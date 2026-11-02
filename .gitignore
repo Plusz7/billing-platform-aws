@@ -29,3 +29,6 @@ PROGRESS.md
 NOTATKI.md
 PROJECT-STRUCTURE.md
 .claude/
+
+# Local TLS-inspection root certificates (machine-specific)
+services/billing-api/certs/*.crt
