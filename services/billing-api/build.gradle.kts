@@ -20,6 +20,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation(platform("software.amazon.awssdk:bom:2.57.8"))
     implementation("software.amazon.awssdk:sns")
+    implementation("software.amazon.awssdk:sqs")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -27,6 +28,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation("org.testcontainers:testcontainers-localstack")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
