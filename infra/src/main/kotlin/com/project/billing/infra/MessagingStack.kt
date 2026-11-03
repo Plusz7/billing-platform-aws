@@ -33,9 +33,24 @@ class MessagingStack(scope: Construct, id: String, props: StackProps) : Stack(sc
         )
         .build()
 
+    val invoiceGenerationDlq: Queue = Queue.Builder.create(this, "InvoiceGenerationDlq")
+        .queueName("invoice-generation-dlq")
+        .retentionPeriod(Duration.days(14))
+        .build()
+
+    val invoiceGenerationQueue: Queue = Queue.Builder.create(this, "InvoiceGenerationQueue")
+        .queueName("invoice-generation")
+        // The generate-invoice Lambda times out after 20 s; AWS recommends 6x the function timeout.
+        .visibilityTimeout(Duration.seconds(120))
+        .deadLetterQueue(
+            DeadLetterQueue.builder().queue(invoiceGenerationDlq).maxReceiveCount(3).build(),
+        )
+        .build()
+
     init {
         // Creates the subscription and the queue policy that lets this topic send to the queue.
         topic.addSubscription(SqsSubscription.Builder.create(queue).rawMessageDelivery(true).build())
+        topic.addSubscription(SqsSubscription.Builder.create(invoiceGenerationQueue).rawMessageDelivery(true).build())
 
         CfnOutput.Builder.create(this, "TopicArn").value(topic.topicArn).build()
         CfnOutput.Builder.create(this, "QueueUrl").value(queue.queueUrl).build()

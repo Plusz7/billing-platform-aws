@@ -1,0 +1,40 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+
+# Required for the OIDC token request; nothing else needs write access.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-invoice:
+    runs-on: ubuntu-latest
+    # Must be main: the role's trust policy only accepts repo:<owner>/<repo>:ref:refs/heads/main.
+    if: github.ref == 'refs/heads/main'
+    env:
+      AWS_REGION: eu-central-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g aws-cdk@2
+      - run: bash gradlew test buildZip
+        working-directory: services/invoice-lambda
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Deploy messaging and invoice stacks
+        run: cdk deploy MessagingStack InvoiceStack --require-approval never
+        working-directory: infra
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
