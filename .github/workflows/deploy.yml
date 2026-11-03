@@ -33,7 +33,8 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       - name: Deploy messaging and invoice stacks
-        run: cdk deploy MessagingStack InvoiceStack --require-approval never
+        # cdk.json points at gradlew.bat for local Windows use; the runner needs the shell wrapper.
+        run: cdk deploy MessagingStack InvoiceStack --app "bash gradlew -q run" --require-approval never
         working-directory: infra
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
