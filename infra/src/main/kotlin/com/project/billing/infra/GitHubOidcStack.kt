@@ -14,10 +14,18 @@ import software.constructs.Construct
 /**
  * Lets GitHub Actions deploy without long-lived keys: the workflow exchanges its OIDC token for short-lived
  * credentials of [deployRole]. The trust policy is the access control, so it pins audience and repository + branch.
+ * [subjectPrefix] must match the repo's `sub` claim: `repo:OWNER/REPO` by default, or with immutable subjects
+ * `repo:OWNER@OWNER_ID/REPO@REPO_ID` (see `gh api repos/OWNER/REPO/actions/oidc/customization/sub`).
  * Deployed once by hand (the pipeline cannot create its own entry door). The OIDC provider is one per account:
  * if the account already has one for token.actions.githubusercontent.com, import it instead of creating it.
  */
-class GitHubOidcStack(scope: Construct, id: String, props: StackProps, githubRepo: String) : Stack(scope, id, props) {
+class GitHubOidcStack(
+    scope: Construct,
+    id: String,
+    props: StackProps,
+    githubRepo: String,
+    subjectPrefix: String = "repo:$githubRepo",
+) : Stack(scope, id, props) {
 
     private val issuer = "token.actions.githubusercontent.com"
 
@@ -38,7 +46,7 @@ class GitHubOidcStack(scope: Construct, id: String, props: StackProps, githubRep
                     mapOf(
                         "StringEquals" to mapOf(
                             "$issuer:aud" to "sts.amazonaws.com",
-                            "$issuer:sub" to "repo:$githubRepo:ref:refs/heads/main",
+                            "$issuer:sub" to "$subjectPrefix:ref:refs/heads/main",
                         ),
                     ),
                 ),

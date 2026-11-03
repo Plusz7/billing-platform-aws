@@ -12,8 +12,12 @@ fun main() {
         .build()
 
     val props = StackProps.builder().env(env).build()
-    // Pass -c githubRepo=OWNER/REPO to create the OIDC role for GitHub Actions.
-    (app.node.tryGetContext("githubRepo") as String?)?.let { GitHubOidcStack(app, "GitHubOidcStack", props, it) }
+    // Pass -c githubRepo=OWNER/REPO to create the OIDC role for GitHub Actions; add -c githubSubjectPrefix=... when
+    // the repo uses immutable subject claims.
+    (app.node.tryGetContext("githubRepo") as String?)?.let { repo ->
+        val prefix = app.node.tryGetContext("githubSubjectPrefix") as String? ?: "repo:$repo"
+        GitHubOidcStack(app, "GitHubOidcStack", props, repo, prefix)
+    }
     val network =NetworkStack(app, "NetworkStack", props)
     val data = DataStack(app, "DataStack", props, network.vpc)
     val messaging = MessagingStack(app, "MessagingStack", props)
