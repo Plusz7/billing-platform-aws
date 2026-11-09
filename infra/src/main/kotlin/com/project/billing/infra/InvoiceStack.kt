@@ -13,6 +13,7 @@ import software.amazon.awscdk.services.dynamodb.Table
 import software.amazon.awscdk.services.lambda.Code
 import software.amazon.awscdk.services.lambda.Function
 import software.amazon.awscdk.services.lambda.Runtime
+import software.amazon.awscdk.services.lambda.Tracing
 import software.amazon.awscdk.services.lambda.eventsources.SqsEventSource
 import software.amazon.awscdk.services.logs.RetentionDays
 import software.amazon.awscdk.services.s3.BlockPublicAccess
@@ -49,6 +50,9 @@ class InvoiceStack(
         .removalPolicy(RemovalPolicy.DESTROY)
         .build()
 
+    lateinit var function: Function
+        private set
+
     init {
         // Lets us list invoices across all customers by status (e.g. every UNPAID one) without a Scan.
         table.addGlobalSecondaryIndex(
@@ -59,7 +63,7 @@ class InvoiceStack(
                 .build(),
         )
 
-        val function = Function.Builder.create(this, "GenerateInvoiceFunction")
+        function = Function.Builder.create(this, "GenerateInvoiceFunction")
             .functionName("generate-invoice")
             .runtime(Runtime.JAVA_21)
             .handler("com.project.billing.invoicelambda.GenerateInvoiceHandler::handleRequest")
@@ -67,6 +71,8 @@ class InvoiceStack(
             .memorySize(512)
             .timeout(Duration.seconds(20))
             .logRetention(RetentionDays.ONE_WEEK)
+            // Active tracing: Lambda samples invocations into X-Ray and adds the segments for S3/DynamoDB calls.
+            .tracing(Tracing.ACTIVE)
             .environment(mapOf("INVOICE_BUCKET" to bucket.bucketName, "INVOICE_TABLE" to table.tableName))
             .build()
 

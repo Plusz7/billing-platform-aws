@@ -24,11 +24,18 @@ fun main() {
     val imageTag = app.node.tryGetContext("imageTag") as String? ?: "latest"
     // 0 on the first deploy: the ECR repository must exist and hold the image before a task can start.
     val desiredCount = (app.node.tryGetContext("desiredCount") as String?)?.toInt() ?: 1
-    InvoiceStack(
+    val invoice = InvoiceStack(
         app, "InvoiceStack", props, messaging.invoiceGenerationQueue,
         "../services/invoice-lambda/build/distributions/invoice-lambda.zip",
     )
-    ComputeStack(app, "ComputeStack", props, network.vpc, data.database, messaging.topic, messaging.queue, imageTag, desiredCount)
+    val compute = ComputeStack(
+        app, "ComputeStack", props, network.vpc, data.database, messaging.topic, messaging.queue, imageTag, desiredCount,
+    )
+    // Pass -c alarmEmail=you@example.com to get alarm notifications (the subscription must be confirmed by email).
+    ObservabilityStack(
+        app, "ObservabilityStack", props, compute, data.database, messaging.deadLetterQueue,
+        messaging.invoiceGenerationDlq, invoice.function, app.node.tryGetContext("alarmEmail") as String?,
+    )
 
     app.synth()
 }

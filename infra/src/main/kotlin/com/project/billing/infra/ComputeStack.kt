@@ -1,6 +1,7 @@
 package com.project.billing.infra
 
 import software.amazon.awscdk.CfnOutput
+import software.amazon.awscdk.Duration
 import software.amazon.awscdk.RemovalPolicy
 import software.amazon.awscdk.Stack
 import software.amazon.awscdk.StackProps
@@ -14,6 +15,8 @@ import software.amazon.awscdk.services.ecs.AwsLogDriverProps
 import software.amazon.awscdk.services.ecs.Cluster
 import software.amazon.awscdk.services.ecs.ContainerDefinitionOptions
 import software.amazon.awscdk.services.ecs.ContainerImage
+import software.amazon.awscdk.services.applicationautoscaling.EnableScalingProps
+import software.amazon.awscdk.services.ecs.CpuUtilizationScalingProps
 import software.amazon.awscdk.services.ecs.FargateService
 import software.amazon.awscdk.services.ecs.FargateTaskDefinition
 import software.amazon.awscdk.services.ecs.LogDrivers
@@ -22,6 +25,7 @@ import software.amazon.awscdk.services.ecs.Secret
 import software.amazon.awscdk.services.elasticloadbalancingv2.AddApplicationTargetsProps
 import software.amazon.awscdk.services.elasticloadbalancingv2.ApplicationLoadBalancer
 import software.amazon.awscdk.services.elasticloadbalancingv2.ApplicationProtocol
+import software.amazon.awscdk.services.elasticloadbalancingv2.ApplicationTargetGroup
 import software.amazon.awscdk.services.elasticloadbalancingv2.BaseApplicationListenerProps
 import software.amazon.awscdk.services.elasticloadbalancingv2.HealthCheck
 import software.amazon.awscdk.services.logs.RetentionDays
@@ -53,6 +57,11 @@ class ComputeStack(
         .removalPolicy(RemovalPolicy.DESTROY)
         .emptyOnDelete(true)
         .build()
+
+    // Exposed for ObservabilityStack (alarms and dashboard).
+    val service: FargateService
+    val alb: ApplicationLoadBalancer
+    val targetGroup: ApplicationTargetGroup
 
     init {
         val cluster = Cluster.Builder.create(this, "Cluster").vpc(vpc).build()
@@ -99,7 +108,7 @@ class ComputeStack(
 
         val serviceSecurityGroup = SecurityGroup.Builder.create(this, "ServiceSecurityGroup").vpc(vpc).build()
 
-        val service = FargateService.Builder.create(this, "Service")
+        service = FargateService.Builder.create(this, "Service")
             .cluster(cluster)
             .taskDefinition(taskDefinition)
             .desiredCount(desiredCount)
@@ -107,6 +116,23 @@ class ComputeStack(
             .vpcSubnets(SubnetSelection.builder().subnetType(SubnetType.PUBLIC).build())
             .securityGroups(listOf(serviceSecurityGroup))
             .build()
+
+        // Target tracking: ECS adds/removes tasks to keep the metric near the target. With desiredCount=0
+        // (first deploy, before the image is pushed) the minimum stays 0 so autoscaling does not start a task.
+        val scaling = service.autoScaleTaskCount(
+            EnableScalingProps.builder()
+                .minCapacity(if (desiredCount == 0) 0 else 1)
+                .maxCapacity(3)
+                .build(),
+        )
+        scaling.scaleOnCpuUtilization(
+            "CpuScaling",
+            CpuUtilizationScalingProps.builder()
+                .targetUtilizationPercent(60)
+                .scaleInCooldown(Duration.minutes(5))
+                .scaleOutCooldown(Duration.minutes(1))
+                .build(),
+        )
 
         // Declared here rather than via database.connections so DataStack does not depend on ComputeStack.
         CfnSecurityGroupIngress.Builder.create(this, "DatabaseIngressFromService")
@@ -117,8 +143,8 @@ class ComputeStack(
             .toPort(5432)
             .build()
 
-        val alb = ApplicationLoadBalancer.Builder.create(this, "LoadBalancer").vpc(vpc).internetFacing(true).build()
-        alb.addListener("Http", BaseApplicationListenerProps.builder().port(80).build())
+        alb = ApplicationLoadBalancer.Builder.create(this, "LoadBalancer").vpc(vpc).internetFacing(true).build()
+        targetGroup = alb.addListener("Http", BaseApplicationListenerProps.builder().port(80).build())
             .addTargets(
                 "BillingApi",
                 AddApplicationTargetsProps.builder()
